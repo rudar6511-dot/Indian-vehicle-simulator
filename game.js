@@ -133,3 +133,63 @@ scene.background=new THREE.Color(0x9cc9df);
 document.querySelector("#loading").remove();show("3D city ready — airport, sea, NPCs, vehicles & weather loaded");
 addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
 animate(performance.now());
+
+// --- OPEN WORLD EXPANSION: original vehicle/aircraft categories, rain, harbour and airport link ---
+const rainGroup=new THREE.Group(); scene.add(rainGroup);
+const rainGeo=new THREE.BufferGeometry();
+const rainCount=1400, rainPos=new Float32Array(rainCount*3);
+for(let i=0;i<rainCount;i++){rainPos[i*3]=(Math.random()-.5)*900;rainPos[i*3+1]=Math.random()*180;rainPos[i*3+2]=(Math.random()-.5)*900;}
+rainGeo.setAttribute("position",new THREE.BufferAttribute(rainPos,3));
+const rainMat=new THREE.PointsMaterial({color:0xbfdcff,size:.7,transparent:true,opacity:.65});
+const rain=new THREE.Points(rainGeo,rainMat); rain.visible=false; rainGroup.add(rain);
+
+function bridgeToAirport(){
+ const bridge=box(80,.8,18,0x55595e); bridge.position.set(380,.35,420); world.add(bridge);
+ for(let x=345;x<420;x+=10){const rail=box(.25,2,18,0x34383d);rail.position.set(x,1.4,420);world.add(rail);}
+}
+bridgeToAirport();
+
+function harbour(){
+ const pier=box(120,1,28,0x75624b);pier.position.set(-360,.2,0);world.add(pier);
+ for(let x=-405;x<=-315;x+=15){const post=cyl(.35,7,0x4b3828);post.position.set(x,3,-10);world.add(post);}
+ const dockRoad=box(130,.15,8,0x30343a);dockRoad.position.set(-360,.85,0);world.add(dockRoad);
+}
+harbour();
+
+function bike(x,z,c){
+ const g=new THREE.Group();const frame=box(.35,.8,.35,c);frame.position.y=1.1;g.add(frame);
+ for(const dz of [-1,1]){const w=cyl(.48,.16,0x171717);w.rotation.z=Math.PI/2;w.position.set(0,.55,dz*1.15);g.add(w);}
+ g.position.set(x,0,z);vehicles.add(g);return g;
+}
+function bus(x,z,c){
+ const g=new THREE.Group();const b=box(3,3,8,c);b.position.y=2;g.add(b);
+ const roof=box(2.7,.15,7.5,0xdfe7ea);roof.position.y=3.55;g.add(roof);
+ g.position.set(x,0,z);vehicles.add(g);return g;
+}
+function truck(x,z,c){
+ const g=new THREE.Group();const body=box(3,2.4,5,c);body.position.y=1.8;g.add(body);
+ const cab=box(3,2.5,2.4,0xe4e4e4);cab.position.set(0,2.2,2.7);g.add(cab);
+ g.position.set(x,0,z);vehicles.add(g);return g;
+}
+for(let i=0;i<8;i++){bike(-280+i*18,90,colors[i%colors.length]);}
+for(let i=0;i<6;i++){bus(-260+i*28,150,colors[(i+2)%colors.length]);}
+for(let i=0;i<8;i++){truck(-300+i*35,-190,colors[(i+4)%colors.length]);}
+
+const originalCycleWeather=cycleWeather;
+cycleWeather=function(){
+ originalCycleWeather();
+ rain.visible=weather==="rain";
+};
+const originalAnimate=animate;
+// rain movement is added through a lightweight frame listener
+let rainLast=performance.now();
+function rainTick(now){
+ const dt=Math.min((now-rainLast)/1000,.05); rainLast=now;
+ if(rain.visible){
+  const p=rain.geometry.attributes.position.array;
+  for(let i=0;i<rainCount;i++){p[i*3+1]-=95*dt;if(p[i*3+1]<0)p[i*3+1]=180;}
+  rain.geometry.attributes.position.needsUpdate=true;
+ }
+ requestAnimationFrame(rainTick);
+}
+requestAnimationFrame(rainTick);
